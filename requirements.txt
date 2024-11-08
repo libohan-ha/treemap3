@@ -1,0 +1,6 @@
+flask==3.0.0
+yt-dlp==2023.11.16
+openai-whisper==20231117
+requests==2.31.0
+gunicorn==21.2.0
+ffmpeg-python==0.2.0

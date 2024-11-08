@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>视频内容总结</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.14.4/dist/browser/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.14.4"></script>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-purple: #bc13fe;
+            --apple-bg: #ffffff;
+            --apple-card: #f5f5f7;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(
+                45deg,
+                #ff00ff,
+                #00f3ff,
+                #bc13fe,
+                #ff00ff
+            );
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1),
+                        0 0 20px rgba(0, 243, 255, 0.3),
+                        0 0 40px rgba(255, 0, 255, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .url-input {
+            display: flex;
+            margin: 15px 0;
+            gap: 15px;
+        }
+
+        input {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .add-btn {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .remove-btn {
+            background: linear-gradient(45deg, #ff4b4b, var(--neon-pink));
+            box-shadow: 0 0 15px rgba(255, 75, 75, 0.3);
+        }
+
+        .submit-btn {
+            background: linear-gradient(45deg, #00ff88, var(--neon-blue));
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 18px;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .result-item {
+            margin: 25px 0;
+            padding: 25px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .result-url {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .result-status {
+            color: var(--neon-blue);
+            margin-bottom: 15px;
+            font-weight: 500;
+            text-shadow: 0 0 5px var(--neon-blue);
+        }
+
+        .view-controls {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .view-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .view-btn.active {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .mindmap-view {
+            height: 500px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+
+        .article-view {
+            white-space: pre-wrap;
+            line-height: 1.8;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            color: white;
+            font-size: 16px;
+        }
+
+        .export-controls {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .export-btn {
+            background: linear-gradient(45deg, var(--neon-purple), var(--neon-pink));
+            box-shadow: 0 0 15px rgba(188, 19, 254, 0.2);
+        }
+
+        @keyframes neon-pulse {
+            0% { box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); }
+            100% { box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+        }
+
+        .loading {
+            animation: neon-pulse 1.5s infinite;
+        }
+
+        /* 思维导图样式优化 */
+        .mindmap-view svg {
+            filter: drop-shadow(0 0 10px rgba(0, 243, 255, 0.2));
+        }
+
+        .mindmap-view svg text {
+            fill: white !important;
+        }
+
+        .mindmap-view svg path {
+            stroke: rgba(255, 255, 255, 0.6) !important;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .url-input {
+                flex-direction: column;
+            }
+            
+            .view-controls, .export-controls {
+                flex-wrap: wrap;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+
+        .file-upload-area {
+            margin: 20px 0;
+            padding: 30px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .file-upload-area.drag-over {
+            border-color: var(--neon-blue);
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .upload-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>视频内容总结</h1>
+        <div id="urlList">
+            <div class="url-input">
+                <input type="text" placeholder="请输入YouTube视频链接">
+                <button class="remove-btn" onclick="removeUrl(this)">删除</button>
+            </div>
+        </div>
+        <div class="file-upload-area" id="dropZone">
+            <input type="file" id="fileInput" accept="audio/*,video/*" style="display: none;" multiple>
+            <div class="upload-content">
+                <div class="upload-icon">📁</div>
+                <div>拖放文件到这里或点击上传</div>
+                <div class="upload-hint">支持音频和视频文件</div>
+            </div>
+        </div>
+        <button class="add-btn" onclick="addUrl()">添加链接</button>
+        <button class="submit-btn" onclick="processAll()" id="submitBtn">开始处理</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addUrl() {
+            const urlList = document.getElementById('urlList');
+            const div = document.createElement('div');
+            div.className = 'url-input';
+            div.innerHTML = `
+                <input type="text" placeholder="请输入YouTube视频链接">
+                <button class="remove-btn" onclick="removeUrl(this)">删除</button>
+            `;
+            urlList.appendChild(div);
+        }
+
+        function removeUrl(btn) {
+            const urlList = document.getElementById('urlList');
+            if (urlList.children.length > 1) {
+                btn.parentElement.remove();
+            }
+        }
+
+        function createResultItem(taskId, url) {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.id = `task-${taskId}`;
+            div.innerHTML = `
+                <div class="result-url">视频链接：${url}</div>
+                <div class="result-status">初始化...</div>
+                <div class="view-controls">
+                    <button onclick="toggleView(this, 'article')" class="view-btn active">文章模式</button>
+                    <button onclick="toggleView(this, 'mindmap')" class="view-btn">思维导图</button>
+                </div>
+                <div class="export-controls">
+                    <button onclick="exportContent('article', '${taskId}')" class="export-btn">导出文章</button>
+                    <button onclick="exportMindmapAsJPG('${taskId}')" class="export-btn">导出思维导图(JPG)</button>
+                </div>
+                <div class="article-view"></div>
+                <div class="mindmap-view"></div>
+            `;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function toggleView(btn, type) {
+            const resultItem = btn.closest('.result-item');
+            const articleView = resultItem.querySelector('.article-view');
+            const mindmapView = resultItem.querySelector('.mindmap-view');
+            const buttons = resultItem.querySelectorAll('.view-btn');
+            
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (type === 'article') {
+                articleView.style.display = 'block';
+                mindmapView.style.display = 'none';
+            } else {
+                articleView.style.display = 'none';
+                mindmapView.style.display = 'block';
+                
+                if (!mindmapView.dataset.initialized) {
+                    const taskId = resultItem.id.replace('task-', '');
+                    initMindmap(taskId, mindmapView);
+                }
+            }
+        }
+
+        async function initMindmap(taskId, container) {
+            if (container.dataset.initialized) return;
+            
+            try {
+                const response = await fetch(`/status/${taskId}`);
+                const data = await response.json();
+                
+                if (data.data?.mindmap) {
+                    // 创建 SVG 元素
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.style.width = '100%';
+                    svg.style.height = '100%';
+                    container.appendChild(svg);
+                    
+                    // 使用 markmap
+                    const { markmap } = window;
+                    const { Transformer } = markmap;
+                    
+                    // 创建转换器实例
+                    const transformer = new Transformer();
+                    
+                    // 转换 markdown 为 mindmap 数据
+                    const { root } = transformer.transform(data.data.mindmap);
+                    
+                    // 创建 markmap 实例并渲染
+                    const mm = markmap.Markmap.create(svg, {
+                        autoFit: true,
+                        fitRatio: 0.95,
+                        duration: 500,
+                        maxWidth: 300,
+                    }, root);
+                    
+                    container.dataset.initialized = 'true';
+                    console.log('Mindmap created successfully');
+                }
+            } catch (error) {
+                console.error('Mindmap initialization error:', error);
+                container.textContent = '思维导��加载失败: ' + error.message;
+            }
+        }
+
+        async function processAll() {
+            const inputs = document.querySelectorAll('.url-input input');
+            const urls = Array.from(inputs)
+                .map(input => input.value.trim())
+                .filter(url => url);
+
+            if (urls.length === 0) {
+                alert('请至少输入一个有效的视频链接');
+                return;
+            }
+
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                data.task_ids.forEach((taskId, index) => {
+                    createResultItem(taskId, urls[index]);
+                    startStatusCheck(taskId);
+                });
+
+            } catch (error) {
+                alert('处理请求失败: ' + error.message);
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+
+        function startStatusCheck(taskId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${taskId}`);
+                    const data = await response.json();
+
+                    const taskElement = document.getElementById(`task-${taskId}`);
+                    if (!taskElement) return;
+
+                    if (data.error) {
+                        taskElement.querySelector('.result-status').textContent = data.error;
+                        clearInterval(interval);
+                        return;
+                    }
+
+                    const taskData = data.data;
+                    taskElement.querySelector('.result-status').textContent = taskData.status;
+
+                    if (taskData.result) {
+                        taskElement.querySelector('.article-view').textContent = taskData.result;
+                        
+                        if (!taskElement.querySelector('.export-controls')) {
+                            const exportControls = document.createElement('div');
+                            exportControls.className = 'export-controls';
+                            exportControls.innerHTML = `
+                                <button onclick="exportContent('article', '${taskId}')" class="export-btn">导出文章</button>
+                                <button onclick="exportContent('mindmap', '${taskId}')" class="export-btn">导出思维导图</button>
+                            `;
+                            taskElement.insertBefore(exportControls, taskElement.querySelector('.article-view'));
+                        }
+                        
+                        clearInterval(interval);
+
+                        const allCompleted = Array.from(document.querySelectorAll('.result-item'))
+                            .every(item => item.querySelector('.article-view').textContent);
+
+                        if (allCompleted) {
+                            document.getElementById('submitBtn').disabled = false;
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('状态检查失败:', error);
+                }
+            }, 1000);
+        }
+
+        async function exportContent(type, taskId) {
+            const response = await fetch(`/status/${taskId}`);
+            const data = await response.json();
+            
+            if (!data.data) return;
+            
+            const content = type === 'article' ? data.data.result : data.data.mindmap;
+            const filename = `summary_${type}_${Date.now()}.${type === 'article' ? 'txt' : 'md'}`;
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function exportMindmapAsJPG(taskId) {
+            const mindmapView = document.querySelector(`#task-${taskId} .mindmap-view`);
+            const svg = mindmapView.querySelector('svg');
+            
+            if (!svg) {
+                alert('思维导图未加载完成');
+                return;
+            }
+
+            try {
+                // 克隆 SVG 并设置样式
+                const clonedSvg = svg.cloneNode(true);
+                const bbox = svg.getBBox();
+                clonedSvg.setAttribute('width', bbox.width + 100);
+                clonedSvg.setAttribute('height', bbox.height + 100);
+                
+                // 将 SVG 转换为字符串
+                const svgData = new XMLSerializer().serializeToString(clonedSvg);
+                
+                // 发送到后端进行转换
+                const response = await fetch('/convert_svg_to_jpg', {
+                    method: 'POST',
+                    body: svgData,
+                    headers: {
+                        'Content-Type': 'image/svg+xml'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('转换失败');
+                
+                // 获取 blob 数据
+                const blob = await response.blob();
+                
+                // 下载文件
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mindmap_${taskId}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Export mindmap error:', error);
+                alert('导出失败: ' + error.message);
+            }
+        }
+
+        // 添加文件上传相关的事件处理
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // 点击上传区域触发文件选择
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // 文件选择处理
+            fileInput.addEventListener('change', handleFiles);
+
+            // 拖放事件处理
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                handleFiles({ target: { files } });
+            });
+        });
+
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+
+            document.getElementById('submitBtn').disabled = true;
+            
+            for (const file of files) {
+                try {
+                    const task_id = await uploadFile(file);
+                    if (task_id) {
+                        createResultItem(task_id, file.name);
+                        startStatusCheck(task_id);
+                    }
+                } catch (error) {
+                    console.error('处理文件失败:', error);
+                }
+            }
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data.task_id;
+            } catch (error) {
+                alert('文件上传失败: ' + error.message);
+                return null;
+            }
+        }
+    </script>
+</body>
+
+</html>
